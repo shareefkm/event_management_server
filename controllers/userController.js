@@ -1,8 +1,5 @@
-import crypto from "crypto";
-import moment from "moment";
 //imports files
 import User from "../models/user.js";
-import { genPass } from "../config/bcript.js";
 import { configEmail } from "../config/emailConfig.js";
 import Event from "../models/event.js";
 
@@ -58,7 +55,10 @@ export const user = {
       const { enteredOtp } = req.body;
       const user = await User.findOne({ otp: enteredOtp });
       if (user) {
-        await User.findOneAndUpdate({ _id: user._id }, { $unset: { otp: 1 } });
+        await User.updateOne(
+          { _id: user._id },
+          { $set: { is_verified: true }, $unset: { otp: 1 } }
+        );        
         user.password = undefined;
         const token = await user.creatJwt();
         res.status(200).send({
@@ -86,10 +86,11 @@ export const user = {
   userLogin: async (req, res) => {
     try {
       const { email, password } = req.body;
-      const user = await User.findOne({ email }).select("+Password");
+      const user = await User.findOne({ email }).select("+password");
       if (user) {
         const isMatch = await user.comparePassword(password);
         if (isMatch) {
+          if(user.is_verified){
           if (user.is_deleted) {
             res.status(403).send({
               success: false,
@@ -112,6 +113,12 @@ export const user = {
               });
             }
           }
+        }else{
+          res.status(404).send({
+            success: false,
+            message: "Youre account is Not Verified",
+          });
+        }
         } else {
           res.status(403).send({
             success: false,
